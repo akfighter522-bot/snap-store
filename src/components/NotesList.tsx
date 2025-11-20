@@ -1,17 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit2, Trash2, Save, X } from "lucide-react";
+import { Send, Trash2 } from "lucide-react";
 import { z } from "zod";
 
 const noteSchema = z.object({
-  title: z.string().trim().min(1, "Title is required").max(200, "Title too long"),
-  content: z.string().trim().max(10000, "Content too long"),
+  title: z.string().trim().min(1, "Message is required").max(500, "Message too long"),
+  content: z.string().optional(),
 });
 
 type Note = {
@@ -22,12 +20,14 @@ type Note = {
 };
 
 export const NotesList = () => {
-  const [isCreating, setIsCreating] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
+  const [message, setMessage] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   const { data: notes, isLoading } = useQuery({
     queryKey: ["notes"],
@@ -35,15 +35,19 @@ export const NotesList = () => {
       const { data, error } = await supabase
         .from("notes")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: true });
       
       if (error) throw error;
       return data as Note[];
     },
   });
 
+  useEffect(() => {
+    scrollToBottom();
+  }, [notes]);
+
   const createMutation = useMutation({
-    mutationFn: async (newNote: { title: string; content: string }) => {
+    mutationFn: async (newNote: { title: string }) => {
       const validation = noteSchema.safeParse(newNote);
       if (!validation.success) {
         throw new Error(validation.error.errors[0].message);
@@ -54,47 +58,19 @@ export const NotesList = () => {
 
       const { error } = await supabase
         .from("notes")
-        .insert({ ...newNote, user_id: user.id });
+        .insert({ title: newNote.title, content: null, user_id: user.id });
       
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notes"] });
-      setIsCreating(false);
-      setTitle("");
-      setContent("");
-      toast({ title: "Note created successfully" });
+      setMessage("");
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, title, content }: { id: string; title: string; content: string }) => {
-      const validation = noteSchema.safeParse({ title, content });
-      if (!validation.success) {
-        throw new Error(validation.error.errors[0].message);
-      }
-
-      const { error } = await supabase
-        .from("notes")
-        .update({ title, content })
-        .eq("id", id);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notes"] });
-      setEditingId(null);
-      setTitle("");
-      setContent("");
-      toast({ title: "Note updated successfully" });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    },
-  });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -103,146 +79,91 @@ export const NotesList = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notes"] });
-      toast({ title: "Note deleted successfully" });
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
-  const startEdit = (note: Note) => {
-    setEditingId(note.id);
-    setTitle(note.title);
-    setContent(note.content || "");
+  const handleSend = () => {
+    if (!message.trim()) return;
+    createMutation.mutate({ title: message });
   };
 
-  const cancelEdit = () => {
-    setEditingId(null);
-    setIsCreating(false);
-    setTitle("");
-    setContent("");
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
   };
 
-  if (isLoading) {
-    return <div className="text-center py-8">Loading notes...</div>;
-  }
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString("en-US", { 
+      hour: "numeric", 
+      minute: "2-digit",
+      hour12: true 
+    });
+  };
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Your Notes</h2>
-        {!isCreating && !editingId && (
-          <Button onClick={() => setIsCreating(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Note
-          </Button>
-        )}
+    <div className="flex flex-col h-[600px] bg-background border border-border rounded-lg shadow-soft">
+      <div className="flex items-center justify-between p-4 border-b border-border">
+        <h2 className="text-xl font-semibold">Notes</h2>
       </div>
 
-      {isCreating && (
-        <Card className="shadow-soft">
-          <CardHeader>
-            <CardTitle>Create New Note</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Input
-              placeholder="Note title..."
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-            <Textarea
-              placeholder="Note content..."
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={6}
-            />
-            <div className="flex gap-2">
-              <Button onClick={() => createMutation.mutate({ title, content })}>
-                <Save className="h-4 w-4 mr-2" />
-                Save
-              </Button>
-              <Button variant="outline" onClick={cancelEdit}>
-                <X className="h-4 w-4 mr-2" />
-                Cancel
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="grid gap-4">
-        {notes?.map((note) => (
-          <Card key={note.id} className="shadow-soft hover:shadow-medium transition-shadow">
-            {editingId === note.id ? (
-              <CardContent className="pt-6 space-y-4">
-                <Input
-                  placeholder="Note title..."
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-                <Textarea
-                  placeholder="Note content..."
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  rows={6}
-                />
-                <div className="flex gap-2">
-                  <Button onClick={() => updateMutation.mutate({ id: note.id, title, content })}>
-                    <Save className="h-4 w-4 mr-2" />
-                    Save
-                  </Button>
-                  <Button variant="outline" onClick={cancelEdit}>
-                    <X className="h-4 w-4 mr-2" />
-                    Cancel
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {isLoading ? (
+          <div className="text-center py-8 text-muted-foreground">Loading messages...</div>
+        ) : notes?.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <p>No messages yet. Start a conversation!</p>
+          </div>
+        ) : (
+          notes?.map((note) => (
+            <div key={note.id} className="flex items-start gap-3 group">
+              <div className="flex-1">
+                <div className="bg-primary/10 rounded-2xl rounded-tl-sm px-4 py-2 inline-block max-w-[80%]">
+                  <p className="text-foreground break-words">{note.title}</p>
+                </div>
+                <div className="flex items-center gap-2 mt-1 ml-1">
+                  <span className="text-xs text-muted-foreground">
+                    {formatTime(note.created_at)}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => deleteMutation.mutate(note.id)}
+                  >
+                    <Trash2 className="h-3 w-3 text-destructive" />
                   </Button>
                 </div>
-              </CardContent>
-            ) : (
-              <>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-1">
-                      <CardTitle>{note.title}</CardTitle>
-                      <CardDescription>
-                        {new Date(note.created_at).toLocaleDateString()}
-                      </CardDescription>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => startEdit(note)}>
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteMutation.mutate(note.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                {note.content && (
-                  <CardContent>
-                    <p className="text-muted-foreground whitespace-pre-wrap">{note.content}</p>
-                  </CardContent>
-                )}
-              </>
-            )}
-          </Card>
-        ))}
+              </div>
+            </div>
+          ))
+        )}
+        <div ref={messagesEndRef} />
       </div>
 
-      {!isLoading && notes?.length === 0 && !isCreating && (
-        <Card className="shadow-soft">
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground mb-4">No notes yet. Create your first note!</p>
-            <Button onClick={() => setIsCreating(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Note
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      <div className="p-4 border-t border-border">
+        <div className="flex gap-2">
+          <Input
+            placeholder="Type a message..."
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyPress={handleKeyPress}
+            className="flex-1"
+          />
+          <Button 
+            onClick={handleSend}
+            disabled={!message.trim() || createMutation.isPending}
+            size="icon"
+          >
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
     </div>
   );
 };
