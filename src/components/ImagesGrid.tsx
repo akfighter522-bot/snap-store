@@ -139,10 +139,10 @@ export const ImagesGrid = () => {
       </div>
 
       {images && images.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
           {images.map((image) => (
             <Card key={image.id} className="shadow-soft hover:shadow-medium transition-shadow overflow-hidden group">
-              <CardContent className="p-0 relative aspect-square">
+              <CardContent className="p-0 relative aspect-square max-h-48">
                 <img
                   src={getImageUrl(image.storage_path)}
                   alt={image.file_name}
