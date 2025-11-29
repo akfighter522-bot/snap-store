@@ -118,25 +118,23 @@ export const ChatMessages = () => {
           </div>
         ) : (
           notes?.map((note) => (
-            <div key={note.id} className="flex items-start gap-3 group">
-              <div className="flex-1">
-                <div className="bg-primary/10 rounded-2xl rounded-tl-sm px-4 py-3 inline-block max-w-[80%]">
-                  <p className="text-sm font-semibold text-foreground mb-1">{note.title}</p>
-                  <p className="text-foreground break-words">{note.content}</p>
-                </div>
-                <div className="flex items-center gap-2 mt-1 ml-1">
-                  <span className="text-xs text-muted-foreground">
-                    {formatTime(note.created_at)}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => deleteMutation.mutate(note.id)}
-                  >
-                    <Trash2 className="h-3 w-3 text-destructive" />
-                  </Button>
-                </div>
+            <div key={note.id} className="flex flex-col gap-1 group">
+              <div className="flex items-center gap-2 ml-1">
+                <span className="text-sm font-semibold text-foreground">{note.title}</span>
+                <span className="text-xs text-muted-foreground">
+                  {formatTime(note.created_at)}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => deleteMutation.mutate(note.id)}
+                >
+                  <Trash2 className="h-3 w-3 text-destructive" />
+                </Button>
+              </div>
+              <div className="bg-primary/10 rounded-2xl rounded-tl-sm px-4 py-2 inline-block max-w-[80%]">
+                <p className="text-foreground break-words">{note.content}</p>
               </div>
             </div>
           ))
