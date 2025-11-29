@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Trash2, Image as ImageIcon, Download } from "lucide-react";
+import { Upload, Trash2, Image as ImageIcon, Download, Eye } from "lucide-react";
 
 type FileUpload = {
   id: string;
@@ -148,7 +148,14 @@ export const ImagesGrid = () => {
                   alt={image.file_name}
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <div className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    onClick={() => window.open(getImageUrl(image.storage_path), '_blank')}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
                   <Button
                     variant="destructive"
                     size="icon"
