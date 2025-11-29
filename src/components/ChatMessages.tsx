@@ -147,7 +147,7 @@ export const ChatMessages = () => {
       <div className="p-4 border-t border-border">
         <div className="space-y-2">
           <Input
-            placeholder="Title..."
+            placeholder="Person name..."
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             className="text-sm"
