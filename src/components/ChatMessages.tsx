@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Trash2 } from "lucide-react";
+import { Send, Trash2, ArrowLeft } from "lucide-react";
 import { z } from "zod";
 
 const noteSchema = z.object({
@@ -22,6 +22,7 @@ type Note = {
 export const ChatMessages = () => {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
+  const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -43,9 +44,31 @@ export const ChatMessages = () => {
     },
   });
 
+  // Group messages by person
+  const conversations = notes?.reduce((acc, note) => {
+    if (!acc[note.title]) {
+      acc[note.title] = [];
+    }
+    acc[note.title].push(note);
+    return acc;
+  }, {} as Record<string, Note[]>);
+
+  // Get conversation list with latest message
+  const conversationList = Object.entries(conversations || {}).map(([person, messages]) => {
+    const latestMessage = messages[messages.length - 1];
+    return {
+      person,
+      latestMessage: latestMessage.content,
+      time: latestMessage.created_at,
+      messageCount: messages.length
+    };
+  }).sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+
   useEffect(() => {
-    scrollToBottom();
-  }, [notes]);
+    if (selectedPerson) {
+      scrollToBottom();
+    }
+  }, [notes, selectedPerson]);
 
   const createMutation = useMutation({
     mutationFn: async (newNote: { title: string; content: string }) => {
@@ -87,8 +110,9 @@ export const ChatMessages = () => {
   });
 
   const handleSend = () => {
-    if (!title.trim() || !message.trim()) return;
-    createMutation.mutate({ title: title.trim(), content: message.trim() });
+    const personName = selectedPerson || title.trim();
+    if (!personName || !message.trim()) return;
+    createMutation.mutate({ title: personName, content: message.trim() });
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -100,56 +124,119 @@ export const ChatMessages = () => {
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString("en-US", { 
-      hour: "numeric", 
-      minute: "2-digit",
-      hour12: true 
-    });
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+    
+    if (diffInHours < 24) {
+      return date.toLocaleTimeString("en-US", { 
+        hour: "numeric", 
+        minute: "2-digit",
+        hour12: true 
+      });
+    } else if (diffInHours < 168) {
+      return date.toLocaleDateString("en-US", { weekday: "short" });
+    } else {
+      return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    }
   };
+
+  const selectedMessages = selectedPerson ? conversations?.[selectedPerson] : null;
 
   return (
     <div className="flex flex-col h-[600px] bg-background border border-border rounded-lg shadow-soft">
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {isLoading ? (
-          <div className="text-center py-8 text-muted-foreground">Loading messages...</div>
-        ) : notes?.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <p>No messages yet. Start a conversation!</p>
+      {!selectedPerson ? (
+        // Conversation List View
+        <>
+          <div className="p-4 border-b border-border">
+            <h2 className="text-lg font-semibold text-foreground">Messages</h2>
           </div>
-        ) : (
-          notes?.map((note) => (
-            <div key={note.id} className="flex flex-col gap-1 group">
-              <div className="flex items-center gap-2 ml-1">
-                <span className="text-sm font-semibold text-foreground">{note.title}</span>
-                <span className="text-xs text-muted-foreground">
-                  {formatTime(note.created_at)}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={() => deleteMutation.mutate(note.id)}
+          <div className="flex-1 overflow-y-auto">
+            {isLoading ? (
+              <div className="text-center py-8 text-muted-foreground">Loading conversations...</div>
+            ) : conversationList.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <p>No conversations yet. Start a new one!</p>
+              </div>
+            ) : (
+              conversationList.map(({ person, latestMessage, time }) => (
+                <div
+                  key={person}
+                  onClick={() => setSelectedPerson(person)}
+                  className="flex items-center gap-3 p-4 border-b border-border hover:bg-accent/50 cursor-pointer transition-colors"
                 >
-                  <Trash2 className="h-3 w-3 text-destructive" />
-                </Button>
-              </div>
-              <div className="bg-primary/10 rounded-2xl rounded-tl-sm px-4 py-2 inline-block max-w-[80%]">
-                <p className="text-foreground break-words">{note.content}</p>
-              </div>
+                  <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                    <span className="text-lg font-semibold text-primary">
+                      {person.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="font-semibold text-foreground truncate">{person}</h3>
+                      <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
+                        {formatTime(time)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground truncate">{latestMessage}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </>
+      ) : (
+        // Individual Chat View
+        <>
+          <div className="p-4 border-b border-border flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSelectedPerson(null)}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+              <span className="text-base font-semibold text-primary">
+                {selectedPerson.charAt(0).toUpperCase()}
+              </span>
             </div>
-          ))
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+            <h2 className="text-lg font-semibold text-foreground">{selectedPerson}</h2>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {selectedMessages?.map((note) => (
+              <div key={note.id} className="flex flex-col gap-1 group">
+                <div className="bg-primary/10 rounded-2xl rounded-tl-sm px-4 py-2 inline-block max-w-[80%]">
+                  <p className="text-foreground break-words">{note.content}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-muted-foreground">
+                      {formatTime(note.created_at)}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => deleteMutation.mutate(note.id)}
+                    >
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+        </>
+      )}
 
       <div className="p-4 border-t border-border">
         <div className="space-y-2">
-          <Input
-            placeholder="Person name..."
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="text-sm"
-          />
+          {!selectedPerson && (
+            <Input
+              placeholder="Person name..."
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="text-sm"
+            />
+          )}
           <div className="flex gap-2">
             <Input
               placeholder="Type a message..."
@@ -160,7 +247,7 @@ export const ChatMessages = () => {
             />
             <Button 
               onClick={handleSend}
-              disabled={!title.trim() || !message.trim() || createMutation.isPending}
+              disabled={(!selectedPerson && !title.trim()) || !message.trim() || createMutation.isPending}
               size="icon"
             >
               <Send className="h-4 w-4" />
