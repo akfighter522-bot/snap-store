@@ -190,16 +190,25 @@ export const ImagesGrid = () => {
                   <Button
                     variant="secondary"
                     size="icon"
-                    asChild
+                    onClick={async () => {
+                      if (!signedUrls[image.id]) return;
+                      try {
+                        const response = await fetch(signedUrls[image.id]);
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = image.file_name;
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+                      } catch (error) {
+                        toast({ title: "Error", description: "Failed to download image", variant: "destructive" });
+                      }
+                    }}
                   >
-                    <a
-                      href={signedUrls[image.id] || '#'}
-                      download={image.file_name}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Download className="h-4 w-4" />
-                    </a>
+                    <Download className="h-4 w-4" />
                   </Button>
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
