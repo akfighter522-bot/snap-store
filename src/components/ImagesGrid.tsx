@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -110,10 +110,26 @@ export const ImagesGrid = () => {
     e.target.value = "";
   };
 
-  const getImageUrl = (path: string) => {
-    const { data } = supabase.storage.from("images").getPublicUrl(path);
-    return data.publicUrl;
-  };
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const fetchSignedUrls = async () => {
+      if (!images || images.length === 0) return;
+      
+      const urls: Record<string, string> = {};
+      for (const image of images) {
+        const { data } = await supabase.storage
+          .from("images")
+          .createSignedUrl(image.storage_path, 3600); // 1 hour expiry
+        if (data?.signedUrl) {
+          urls[image.id] = data.signedUrl;
+        }
+      }
+      setSignedUrls(urls);
+    };
+    
+    fetchSignedUrls();
+  }, [images]);
 
   if (isLoading) {
     return <div className="text-center py-8">Loading images...</div>;
@@ -143,16 +159,22 @@ export const ImagesGrid = () => {
           {images.map((image) => (
             <Card key={image.id} className="shadow-soft hover:shadow-medium transition-shadow overflow-hidden group">
               <CardContent className="p-0 relative aspect-square max-h-48">
-                <img
-                  src={getImageUrl(image.storage_path)}
-                  alt={image.file_name}
-                  className="w-full h-full object-cover"
-                />
+                {signedUrls[image.id] ? (
+                  <img
+                    src={signedUrls[image.id]}
+                    alt={image.file_name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-muted">
+                    <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                )}
                 <div className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 z-10">
                   <Button
                     variant="secondary"
                     size="icon"
-                    onClick={() => window.open(getImageUrl(image.storage_path), '_blank')}
+                    onClick={() => signedUrls[image.id] && window.open(signedUrls[image.id], '_blank')}
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
@@ -171,7 +193,7 @@ export const ImagesGrid = () => {
                     asChild
                   >
                     <a
-                      href={getImageUrl(image.storage_path)}
+                      href={signedUrls[image.id] || '#'}
                       download={image.file_name}
                       target="_blank"
                       rel="noopener noreferrer"
