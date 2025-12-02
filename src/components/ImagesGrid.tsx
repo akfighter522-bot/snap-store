@@ -148,7 +148,7 @@ export const ImagesGrid = () => {
                   alt={image.file_name}
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                <div className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 z-10">
                   <Button
                     variant="secondary"
                     size="icon"
@@ -164,7 +164,7 @@ export const ImagesGrid = () => {
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                   <Button
                     variant="secondary"
                     size="icon"
