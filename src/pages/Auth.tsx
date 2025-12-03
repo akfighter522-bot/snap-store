@@ -19,14 +19,26 @@ const passwordSchema = z
   .regex(/[0-9]/, "Password must contain at least one number")
   .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character");
 
-const authSchema = z.object({
+const signInSchema = z.object({
+  email: z.string().email("Invalid email address").max(255),
+  password: z.string().min(1, "Password is required"),
+});
+
+const signUpSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters").max(100),
   email: z.string().email("Invalid email address").max(255),
   password: passwordSchema,
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 });
 
 export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -39,11 +51,11 @@ export default function Auth() {
     });
   }, [navigate]);
 
-  const handleAuth = async (isSignUp: boolean) => {
+  const handleSignIn = async () => {
     try {
       setLoading(true);
       
-      const validation = authSchema.safeParse({ email, password });
+      const validation = signInSchema.safeParse({ email, password });
       if (!validation.success) {
         toast({
           title: "Validation Error",
@@ -53,31 +65,66 @@ export default function Auth() {
         return;
       }
 
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-          },
-        });
-        
-        if (error) throw error;
-        
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) throw error;
+      
+      navigate("/");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignUp = async () => {
+    try {
+      setLoading(true);
+      
+      const validation = signUpSchema.safeParse({ name, email, password, confirmPassword });
+      if (!validation.success) {
         toast({
-          title: "Success!",
-          description: "Account created. You can now sign in.",
+          title: "Validation Error",
+          description: validation.error.errors[0].message,
+          variant: "destructive",
         });
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        
-        if (error) throw error;
-        
-        navigate("/");
+        return;
       }
+
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+        },
+      });
+      
+      if (error) throw error;
+
+      // Create profile with name
+      if (data.user) {
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .insert({ user_id: data.user.id, name });
+
+        if (profileError) throw profileError;
+      }
+      
+      toast({
+        title: "Success!",
+        description: "Account created. You can now sign in.",
+      });
+
+      // Reset form
+      setName("");
+      setConfirmPassword("");
     } catch (error: any) {
       toast({
         title: "Error",
@@ -155,7 +202,7 @@ export default function Auth() {
                 </div>
                 <Button
                   className="w-full"
-                  onClick={() => handleAuth(false)}
+                  onClick={handleSignIn}
                   disabled={loading}
                 >
                   {loading ? "Signing in..." : "Sign In"}
@@ -163,6 +210,17 @@ export default function Auth() {
               </TabsContent>
               
               <TabsContent value="signup" className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="signup-name">Full Name</Label>
+                  <Input
+                    id="signup-name"
+                    type="text"
+                    placeholder="John Doe"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">Email</Label>
                   <Input
@@ -184,10 +242,24 @@ export default function Auth() {
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={loading}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Min 8 chars, uppercase, lowercase, number & special character
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-confirm-password">Confirm Password</Label>
+                  <Input
+                    id="signup-confirm-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    disabled={loading}
+                  />
                 </div>
                 <Button
                   className="w-full"
-                  onClick={() => handleAuth(true)}
+                  onClick={handleSignUp}
                   disabled={loading}
                 >
                   {loading ? "Creating account..." : "Sign Up"}
