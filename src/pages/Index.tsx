@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -5,13 +6,32 @@ import { AuthGuard } from "@/components/AuthGuard";
 import { NotesList } from "@/components/NotesList";
 import { ImagesGrid } from "@/components/ImagesGrid";
 import { DocumentsList } from "@/components/DocumentsList";
-import { LogOut, FileText, Image, Upload } from "lucide-react";
+import { LogOut, FileText, Image, Upload, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 
 const Index = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [userName, setUserName] = useState<string>("");
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("name")
+          .eq("user_id", user.id)
+          .single();
+        
+        if (profile) {
+          setUserName(profile.name);
+        }
+      }
+    };
+    fetchProfile();
+  }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -30,10 +50,18 @@ const Index = () => {
               </h1>
               <p className="text-muted-foreground mt-1">Manage your notes, images, and documents</p>
             </div>
-            <Button variant="outline" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </Button>
+            <div className="flex items-center gap-4">
+              {userName && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-card border border-border">
+                  <User className="h-4 w-4 text-primary" />
+                  <span className="font-medium">{userName}</span>
+                </div>
+              )}
+              <Button variant="outline" onClick={handleLogout}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            </div>
           </div>
 
           <Tabs defaultValue="notes" className="space-y-6">
