@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
-import { FileText, Image, Upload } from "lucide-react";
+import { FileText, Image, Upload, Mail } from "lucide-react";
 
 const passwordSchema = z
   .string()
@@ -39,7 +39,9 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [otpEmail, setOtpEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -136,6 +138,45 @@ export default function Auth() {
     }
   };
 
+  const handleOtpLogin = async () => {
+    try {
+      setLoading(true);
+      
+      const emailValidation = z.string().email("Invalid email address").safeParse(otpEmail);
+      if (!emailValidation.success) {
+        toast({
+          title: "Validation Error",
+          description: "Please enter a valid email address",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { error } = await supabase.auth.signInWithOtp({
+        email: otpEmail,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+        },
+      });
+      
+      if (error) throw error;
+      
+      setOtpSent(true);
+      toast({
+        title: "Magic Link Sent!",
+        description: "Check your email for the login link.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-secondary/30 to-accent/10 p-4">
       <div className="w-full max-w-5xl grid md:grid-cols-2 gap-8 items-center">
@@ -172,9 +213,13 @@ export default function Auth() {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="signin">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="signin">Sign In</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                <TabsTrigger value="otp">
+                  <Mail className="h-4 w-4 mr-1" />
+                  OTP
+                </TabsTrigger>
               </TabsList>
               
               <TabsContent value="signin" className="space-y-4">
@@ -264,6 +309,53 @@ export default function Auth() {
                 >
                   {loading ? "Creating account..." : "Sign Up"}
                 </Button>
+              </TabsContent>
+
+              <TabsContent value="otp" className="space-y-4">
+                {!otpSent ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="otp-email">Email</Label>
+                      <Input
+                        id="otp-email"
+                        type="email"
+                        placeholder="you@example.com"
+                        value={otpEmail}
+                        onChange={(e) => setOtpEmail(e.target.value)}
+                        disabled={loading}
+                      />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      We'll send a magic link to your email for passwordless sign-in.
+                    </p>
+                    <Button
+                      className="w-full"
+                      onClick={handleOtpLogin}
+                      disabled={loading}
+                    >
+                      {loading ? "Sending..." : "Send Magic Link"}
+                    </Button>
+                  </>
+                ) : (
+                  <div className="text-center space-y-4 py-4">
+                    <Mail className="h-12 w-12 mx-auto text-primary" />
+                    <div>
+                      <h3 className="font-semibold">Check your email</h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        We sent a magic link to <strong>{otpEmail}</strong>
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setOtpSent(false);
+                        setOtpEmail("");
+                      }}
+                    >
+                      Try another email
+                    </Button>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </CardContent>
