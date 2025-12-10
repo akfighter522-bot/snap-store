@@ -7,13 +7,13 @@
     <script>
       // Single Page App redirect for GitHub Pages
       // Redirects all 404s to index.html with the path as a query param
-      const basePath = '/snap-store';
-      const pathAfterBase = window.location.pathname.replace(basePath, '') || '/';
+      const basePath = '/snap-store/';
+      const pathAfterBase = window.location.pathname.replace('/snap-store', '').replace(/^\//, '') || '/';
       const search = window.location.search;
       const hash = window.location.hash;
       // Redirect to base index.html with the route as a query param
       window.location.replace(
-        window.location.origin + basePath + '/?redirect=' + encodeURIComponent(pathAfterBase + search + hash)
+        window.location.origin + basePath + '?redirect=' + encodeURIComponent('/' + pathAfterBase + search + hash)
       );
     </script>
   </head>
