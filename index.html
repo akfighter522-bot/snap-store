@@ -22,20 +22,24 @@
     <script>
       // GitHub Pages SPA redirect handler
       (function() {
-        var basePath = '/snap-store';
-        var redirect = sessionStorage.redirect;
-        delete sessionStorage.redirect;
-        if (redirect && redirect !== location.href) {
-          history.replaceState(null, null, redirect);
-        }
-        // Handle redirect query param from 404.html
-        var params = new URLSearchParams(location.search);
-        var redirectPath = params.get('redirect');
-        if (redirectPath) {
-          var fullPath = basePath + (redirectPath.startsWith('/') ? redirectPath : '/' + redirectPath);
-          history.replaceState(null, null, fullPath);
-          // Clean up the URL by removing the query param
-          window.history.replaceState({}, document.title, fullPath);
+        var defined = function(val) { return val !== undefined && val !== null; };
+        var defined_not_blank = function(val) { return defined(val) && val !== ''; };
+        
+        // Handle the redirect parameter from 404.html
+        var params = new URLSearchParams(window.location.search);
+        var p = params.get('p');
+        
+        if (defined_not_blank(p)) {
+          var decoded = decodeURIComponent(p)
+            .replace(/~and~/g, '&')
+            .replace(/~qm~/g, '?');
+          
+          // Clean URL and let React Router handle it
+          window.history.replaceState(
+            null, 
+            null,
+            window.location.pathname.replace(/\/$/, '') + '/' + decoded + window.location.hash
+          );
         }
       })();
     </script>
