@@ -22,6 +22,7 @@
     <script>
       // GitHub Pages SPA redirect handler
       (function() {
+        var basePath = '/snap-store';
         var redirect = sessionStorage.redirect;
         delete sessionStorage.redirect;
         if (redirect && redirect !== location.href) {
@@ -31,8 +32,10 @@
         var params = new URLSearchParams(location.search);
         var redirectPath = params.get('redirect');
         if (redirectPath) {
-          sessionStorage.redirect = location.origin + redirectPath;
-          history.replaceState(null, null, decodeURIComponent(redirectPath));
+          var fullPath = basePath + (redirectPath.startsWith('/') ? redirectPath : '/' + redirectPath);
+          history.replaceState(null, null, fullPath);
+          // Clean up the URL by removing the query param
+          window.history.replaceState({}, document.title, fullPath);
         }
       })();
     </script>
