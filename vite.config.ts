@@ -5,8 +5,6 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  // Set base URL for GitHub Pages
-  base: mode === "production" ? "/snap-store/" : "/",
   server: {
     host: "::",
     port: 8080,
