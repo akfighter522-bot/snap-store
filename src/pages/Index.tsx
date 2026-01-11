@@ -6,14 +6,16 @@ import { AuthGuard } from "@/components/AuthGuard";
 import { NotesList } from "@/components/NotesList";
 import { ImagesGrid } from "@/components/ImagesGrid";
 import { DocumentsList } from "@/components/DocumentsList";
-import { LogOut, FileText, Image, Upload, User } from "lucide-react";
+import { LogOut, FileText, Image, Upload, User, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { useAdminRole } from "@/hooks/useAdminRole";
 
 const Index = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [userName, setUserName] = useState<string>("");
+  const { isAdmin } = useAdminRole();
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -56,6 +58,12 @@ const Index = () => {
                   <User className="h-4 w-4 text-primary" />
                   <span className="font-medium">{userName}</span>
                 </div>
+              )}
+              {isAdmin && (
+                <Button variant="secondary" onClick={() => navigate("/admin")}>
+                  <Shield className="h-4 w-4 mr-2" />
+                  Admin
+                </Button>
               )}
               <Button variant="outline" onClick={handleLogout}>
                 <LogOut className="h-4 w-4 mr-2" />
